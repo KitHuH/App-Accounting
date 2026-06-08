@@ -37,8 +37,17 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         prefs.edit().putString("app_theme", themeType.name).apply()
     }
 
+    private val _compactMode = MutableStateFlow(prefs.getBoolean("compact_mode", false))
+    val compactMode: StateFlow<Boolean> = _compactMode.asStateFlow()
+
+    fun setCompactMode(enabled: Boolean) {
+        _compactMode.value = enabled
+        prefs.edit().putBoolean("compact_mode", enabled).apply()
+    }
+
     // Keep track of the currently viewed month date
     private val _viewDate = MutableStateFlow(Calendar.getInstance())
+    val viewDate: StateFlow<Calendar> = _viewDate.asStateFlow()
     
     val currentMonthYearString: StateFlow<String> = _viewDate.map { 
         SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(it.time)
@@ -114,6 +123,15 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         val newCal = Calendar.getInstance().apply { 
             timeInMillis = _viewDate.value.timeInMillis
             add(Calendar.MONTH, 1)
+        }
+        _viewDate.value = newCal
+    }
+
+    fun setMonthYear(month: Int, year: Int) {
+        val newCal = Calendar.getInstance().apply { 
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, month)
+            set(Calendar.DAY_OF_MONTH, 1)
         }
         _viewDate.value = newCal
     }

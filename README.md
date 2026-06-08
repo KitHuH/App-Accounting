@@ -19,7 +19,3 @@ View your app in AI Studio: https://ai.studio/apps/68b20188-dce3-4fc8-bf94-de081
 4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
 5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
 6. Run the app on an emulator or physical device
-
-
-APP INI HANYA KEGABUTAN DAN TESTER AI BUILD BY GEMINI UNTUK MENGATUR KEUANGAN SAYA SEBAGAI MAHASIGMa
-01/06/2026

@@ -44,14 +44,22 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
     val budget by viewModel.currentBudget.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val currentMonthYearString by viewModel.currentMonthYearString.collectAsStateWithLifecycle()
+    val viewDate by viewModel.viewDate.collectAsStateWithLifecycle()
+
+    val compactMode by viewModel.compactMode.collectAsStateWithLifecycle()
 
     var showAddExpenseDialog by remember { mutableStateOf(false) }
     var showSetBudgetDialog by remember { mutableStateOf(false) }
     var showFabMenu by remember { mutableStateOf(false) }
     var showSystemDialog by remember { mutableStateOf(false) }
+    var showMonthPicker by remember { mutableStateOf(false) }
     var expenseToDelete by remember { mutableStateOf<com.example.data.Expense?>(null) }
     var expenseToEdit by remember { mutableStateOf<com.example.data.Expense?>(null) }
+    var sortDescending by remember { mutableStateOf(true) }
     
+    val sortedExpenses = remember(expenses, sortDescending) {
+        if (sortDescending) expenses.sortedByDescending { it.timestamp } else expenses.sortedBy { it.timestamp }
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     val createDocumentLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
@@ -154,18 +162,14 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
                 targetState = currentMonthYearString,
                 label = "MonthTransition",
                 transitionSpec = {
-                    (androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) +
-                     androidx.compose.animation.scaleIn(initialScale = 0.95f, animationSpec = androidx.compose.animation.core.tween(300)))
-                    .togetherWith(
-                        androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300)) +
-                        androidx.compose.animation.scaleOut(targetScale = 1.05f, animationSpec = androidx.compose.animation.core.tween(300))
-                    )
+                    androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) togetherWith
+                    androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300))
                 },
                 modifier = Modifier.fillMaxSize().padding(padding)
             ) { monthYearStr ->
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp)
+                    contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 88.dp)
                 ) {
                     item {
                         Row(
@@ -176,11 +180,13 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
                             IconButton(onClick = { viewModel.previousMonth() }) {
                                 Icon(Icons.Default.ChevronLeft, contentDescription = "Bulan Sebelumnya")
                             }
-                            Text(
-                                text = monthYearStr,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            androidx.compose.material3.TextButton(onClick = { showMonthPicker = true }) {
+                                Text(
+                                    text = monthYearStr,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                             IconButton(onClick = { viewModel.nextMonth() }) {
                                 Icon(Icons.Default.ChevronRight, contentDescription = "Bulan Berikutnya")
                             }
@@ -224,16 +230,61 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
                     }
                     
                     item {
-                        Text(
-                            text = "Pengeluaran Terbaru",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Daftar Pengeluaran",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            var showSortMenu by remember { mutableStateOf(false) }
+                            Box {
+                                androidx.compose.material3.TextButton(onClick = { showSortMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sort,
+                                        contentDescription = "Urutkan",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(if (sortDescending) "Terbaru" else "Terlama", style = MaterialTheme.typography.bodySmall)
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                androidx.compose.material3.DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text("Terbaru ke Terlama") },
+                                        onClick = { 
+                                            sortDescending = true
+                                            showSortMenu = false 
+                                        },
+                                        trailingIcon = { if (sortDescending) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                    )
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text("Terlama ke Terbaru") },
+                                        onClick = { 
+                                            sortDescending = false
+                                            showSortMenu = false 
+                                        },
+                                        trailingIcon = { if (!sortDescending) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                                    )
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
             
-                    if (expenses.isEmpty()) {
+                    if (sortedExpenses.isEmpty()) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                                 Text("Belum ada pengeluaran", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -241,11 +292,12 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
                         }
                     } else {
                         items(
-                            items = expenses,
+                            items = sortedExpenses,
                             key = { it.id }
                         ) { expense ->
                             ExpenseItem(
                                 expense = expense,
+                                compactMode = compactMode,
                                 modifier = Modifier.animateItem(),
                                 onEdit = { expenseToEdit = it },
                                 onDelete = { expenseToDelete = it }
@@ -282,6 +334,17 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
                 )
                 viewModel.updateExpense(updatedExpense)
                 expenseToEdit = null
+            }
+        )
+    }
+
+    if (showMonthPicker) {
+        MonthYearPickerDialog(
+            currentDate = viewDate,
+            onDismiss = { showMonthPicker = false },
+            onSave = { month, year ->
+                viewModel.setMonthYear(month, year)
+                showMonthPicker = false
             }
         )
     }
@@ -511,6 +574,23 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
 
                         Spacer(modifier = Modifier.height(24.dp))
                         
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { viewModel.setCompactMode(!compactMode) },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Mode Ringkas", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Text("Lebih banyak data terlihat dalam layar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = compactMode,
+                                onCheckedChange = { viewModel.setCompactMode(it) }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
                         Text(
                             "Tentang Aplikasi",
                             style = MaterialTheme.typography.titleMedium,
@@ -523,7 +603,7 @@ fun FinanceScreen(viewModel: FinanceViewModel) {
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Versi 1.5.4", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Versi 2.0", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Build & Disain By Gemini dan Gewa", 
@@ -694,7 +774,7 @@ fun DashboardCard(totalSpent: Double, budgetAmount: Double?, themeMode: com.exam
 }
 
 @Composable
-fun ExpenseItem(expense: com.example.data.Expense, modifier: Modifier = Modifier, onEdit: (com.example.data.Expense) -> Unit, onDelete: (com.example.data.Expense) -> Unit) {
+fun ExpenseItem(expense: com.example.data.Expense, compactMode: Boolean = false, modifier: Modifier = Modifier, onEdit: (com.example.data.Expense) -> Unit, onDelete: (com.example.data.Expense) -> Unit) {
     val formatRp = NumberFormat.getCurrencyInstance(Locale.Builder().setLanguage("id").setRegion("ID").build())
     val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.Builder().setLanguage("id").setRegion("ID").build())
     
@@ -707,13 +787,13 @@ fun ExpenseItem(expense: com.example.data.Expense, modifier: Modifier = Modifier
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(if (compactMode) 8.dp else 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(if (compactMode) 32.dp else 48.dp)
+                    .clip(RoundedCornerShape(if (compactMode) 8.dp else 12.dp))
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
@@ -728,22 +808,25 @@ fun ExpenseItem(expense: com.example.data.Expense, modifier: Modifier = Modifier
                 Icon(
                     imageVector = icon,
                     contentDescription = expense.category,
+                    modifier = Modifier.size(if (compactMode) 16.dp else 24.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(if (compactMode) 8.dp else 16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = expense.description,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = if (compactMode) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Text(
                     text = sdf.format(Date(expense.timestamp)),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = if (compactMode) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -753,25 +836,25 @@ fun ExpenseItem(expense: com.example.data.Expense, modifier: Modifier = Modifier
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = formatRp.format(expense.amount),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = if (compactMode) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error // Expenses usually shown in red/error color
                 )
                 Row {
-                    IconButton(onClick = { onEdit(expense) }, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = { onEdit(expense) }, modifier = Modifier.size(if (compactMode) 20.dp else 24.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(if (compactMode) 14.dp else 16.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { onDelete(expense) }, modifier = Modifier.size(24.dp)) {
+                    Spacer(modifier = Modifier.width(if (compactMode) 4.dp else 8.dp))
+                    IconButton(onClick = { onDelete(expense) }, modifier = Modifier.size(if (compactMode) 20.dp else 24.dp)) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Hapus",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(if (compactMode) 14.dp else 16.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1235,3 +1318,75 @@ fun DashboardCardDecoration(themeMode: com.example.ui.theme.AppThemeType) {
         }
     }
 }
+
+@Composable
+fun MonthYearPickerDialog(
+    currentDate: java.util.Calendar,
+    onDismiss: () -> Unit,
+    onSave: (month: Int, year: Int) -> Unit
+) {
+    var selectedMonth by remember { mutableStateOf(currentDate.get(java.util.Calendar.MONTH)) }
+    var selectedYear by remember { mutableStateOf(currentDate.get(java.util.Calendar.YEAR)) }
+
+    val months = listOf(
+        "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+        "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Pilih Bulan & Tahun", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                ) {
+                    IconButton(onClick = { selectedYear-- }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Tahun Sebelumnya")
+                    }
+                    Text(text = "$selectedYear", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { selectedYear++ }) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Tahun Berikutnya")
+                    }
+                }
+                
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                    modifier = Modifier.height(200.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(months.size) { index ->
+                        val isSelected = selectedMonth == index
+                        androidx.compose.material3.TextButton(
+                            onClick = { selectedMonth = index },
+                            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(months[index], style = MaterialTheme.typography.bodyMedium, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(selectedMonth, selectedYear) }) {
+                Text("Simpan")
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
+}
+
