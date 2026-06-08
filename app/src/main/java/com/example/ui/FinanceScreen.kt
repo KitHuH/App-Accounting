@@ -1192,16 +1192,22 @@ fun MonthlyTrendChart(expenses: List<Expense>) {
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Chart(
-                chart = lineChart(),
-                model = chartEntryModel,
-                startAxis = rememberStartAxis(),
-                bottomAxis = rememberBottomAxis(),
-                chartScrollSpec = com.patrykandpatrick.vico.compose.chart.scroll.rememberChartScrollSpec(
-                    isScrollEnabled = true
-                ),
-                modifier = Modifier.fillMaxWidth().height(200.dp)
-            )
+            com.patrykandpatrick.vico.compose.style.ProvideChartStyle(
+                chartStyle = com.patrykandpatrick.vico.compose.m3.style.m3ChartStyle(
+                    entityColors = listOf(MaterialTheme.colorScheme.primary)
+                )
+            ) {
+                Chart(
+                    chart = lineChart(),
+                    model = chartEntryModel,
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis(),
+                    chartScrollSpec = com.patrykandpatrick.vico.compose.chart.scroll.rememberChartScrollSpec(
+                        isScrollEnabled = true
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(200.dp)
+                )
+            }
         }
     }
 }
